@@ -65,11 +65,19 @@ fn main() {
     let stats_clone = stats.clone();
     thread::spawn(move || loop {
         let mut stats = stats_clone.lock().unwrap();
-        if let Err(e) = ping(&ip) {
-            eprintln!("failed to ping {} ({})", ip, e);
-            (*stats).dropped += 1;
-        } else {
-            (*stats).passed += 1;
+        match ping(&ip) {
+            Err(e) => {
+                eprintln!("failed to ping {} ({})", ip, e);
+                (*stats).dropped += 1;
+            },
+            Ok(latency) if latency == -1.0_f64 => {
+                eprintln!("failed to ping {}, timed out", ip);
+                (*stats).dropped += 1;
+            },
+            Ok(latency) => {
+                (*stats).passed += 1;
+                (*stats).durations.push(latency);
+            }
         }
         (*stats).total += 1;
         thread::sleep(Duration::from_millis(1000));
