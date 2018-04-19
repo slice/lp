@@ -4,7 +4,7 @@ use chan_signal::Signal;
 extern crate oping;
 use oping::{Ping, PingResult};
 use std::sync::{Arc, Mutex};
-use std::{thread, time::Duration};
+use std::{env, thread, time::Duration};
 
 fn ping(host: &str) -> PingResult<f64> {
     let mut ping = Ping::new();
@@ -19,12 +19,13 @@ fn ping(host: &str) -> PingResult<f64> {
 }
 
 fn main() {
+    let ip = env::args().skip(1).next().unwrap_or("8.8.8.8".to_string());
     let total_pings = Arc::new(Mutex::new(0));
     let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
 
     let ping_clone = total_pings.clone();
     thread::spawn(move || loop {
-        ping("8.8.8.8").expect("failed to ping, are you running with sudo?");
+        ping(&ip).expect("failed to ping, are you running with sudo?");
         *ping_clone.lock().unwrap() += 1;
         thread::sleep(Duration::from_millis(1000));
     });
