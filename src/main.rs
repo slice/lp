@@ -11,10 +11,12 @@ fn ping(host: &str) -> PingResult<f64> {
     ping.set_timeout(5.0)?;
     ping.add_host(host)?;
     let response = ping.send()?.next().expect("ping got thrown into the void");
-    println!(
-        ">> {} ({}), {}ms",
-        response.hostname, response.address, response.latency_ms
-    );
+    let target = if response.hostname == response.address {
+        response.address
+    } else {
+        format!("{} ({})", response.hostname, response.address)
+    };
+    println!(">> {}, {}ms", target, response.latency_ms);
     Ok(response.latency_ms)
 }
 
