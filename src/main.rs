@@ -21,7 +21,7 @@ fn ping(host: &str) -> PingResult<f64> {
 }
 
 fn main() {
-    let ip = env::args().skip(1).next().unwrap_or("8.8.8.8".to_string());
+    let ip = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
     let total_pings = Arc::new(Mutex::new(0));
     let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
 
