@@ -4,7 +4,25 @@ use chan_signal::Signal;
 extern crate oping;
 use oping::{Ping, PingResult};
 use std::sync::{Arc, Mutex};
-use std::{env, thread, time::Duration};
+use std::{fmt, env, thread, time::Duration};
+
+struct PingStats {
+    total: u32,
+    dropped: u32,
+    passed: u32,
+}
+
+impl PingStats {
+    fn new() -> PingStats {
+        PingStats { total: 0, dropped: 0, passed: 0 }
+    }
+}
+
+impl fmt::Display for PingStats {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} passed, {} dropped ({} total)", self.passed, self.dropped, self.total)
+    }
+}
 
 fn ping(host: &str) -> PingResult<f64> {
     let mut ping = Ping::new();
@@ -22,18 +40,24 @@ fn ping(host: &str) -> PingResult<f64> {
 
 fn main() {
     let ip = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
-    let total_pings = Arc::new(Mutex::new(0));
+    let stats = Arc::new(Mutex::new(PingStats::new()));
     let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
 
-    let ping_clone = total_pings.clone();
+    let stats_clone = stats.clone();
     thread::spawn(move || loop {
-        ping(&ip).expect("failed to ping, are you running with sudo?");
-        *ping_clone.lock().unwrap() += 1;
+        let mut stats = stats_clone.lock().unwrap();
+        if let Err(e) = ping(&ip) {
+            eprintln!("failed to ping {} ({})", ip, e);
+            (*stats).dropped += 1;
+        } else {
+            (*stats).passed += 1;
+        }
+        (*stats).total += 1;
         thread::sleep(Duration::from_millis(1000));
     });
 
     signal.recv().unwrap();
-    let total_pings = total_pings.clone();
-    let total_pings = total_pings.lock().unwrap();
-    println!("Total pings: {}", total_pings);
+    let stats = stats.clone();
+    let stats = stats.lock().unwrap();
+    println!("{}", stats);
 }
