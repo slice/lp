@@ -1,0 +1,8 @@
+[package]
+name = "lp"
+version = "0.1.0"
+authors = ["slice <ryaneft@gmail.com>"]
+
+[dependencies]
+oping = "0.3.3"
+chan-signal = "0.3.1"
