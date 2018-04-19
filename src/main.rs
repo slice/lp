@@ -10,17 +10,23 @@ struct PingStats {
     total: u32,
     dropped: u32,
     passed: u32,
+    durations: Vec<f64>,
 }
 
 impl PingStats {
     fn new() -> PingStats {
-        PingStats { total: 0, dropped: 0, passed: 0 }
+        PingStats { total: 0, dropped: 0, passed: 0, durations: Vec::new() }
+    }
+
+    fn avg(&self) -> f64 {
+        let sum: f64 = self.durations.iter().sum();
+        sum / self.durations.len() as f64
     }
 }
 
 impl fmt::Display for PingStats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} passed, {} dropped ({} total)", self.passed, self.dropped, self.total)
+        write!(f, "{} passed, {} dropped ({} total, {:.2}ms avg)", self.passed, self.dropped, self.total, self.avg())
     }
 }
 
