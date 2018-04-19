@@ -4,7 +4,7 @@ use chan_signal::Signal;
 extern crate oping;
 use oping::{Ping, PingResult};
 use std::sync::{Arc, Mutex};
-use std::{fmt, env, thread, time::Duration};
+use std::{fmt, env, thread, time::{Duration, Instant}};
 
 struct PingStats {
     total: u32,
@@ -38,7 +38,20 @@ fn ping(host: &str) -> PingResult<f64> {
     Ok(response.latency_ms)
 }
 
+fn pretty_duration(dur: &Duration) -> String {
+    let secs = dur.as_secs();
+
+    if secs > 60 && secs < 60 * 60 {
+        format!("{}m, {}s", secs / 60, secs % 60)
+    } else if secs > 60 * 60 {
+        format!("{}h", secs / 3600)
+    } else {
+        format!("{}s", secs)
+    }
+}
+
 fn main() {
+    let now = Instant::now();
     let ip = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
     let stats = Arc::new(Mutex::new(PingStats::new()));
     let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
@@ -59,5 +72,5 @@ fn main() {
     signal.recv().unwrap();
     let stats = stats.clone();
     let stats = stats.lock().unwrap();
-    println!("{}", stats);
+    println!("Statistics: {}, spent {} pinging", stats, pretty_duration(&now.elapsed()));
 }
