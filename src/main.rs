@@ -4,7 +4,10 @@ use chan_signal::Signal;
 extern crate oping;
 use oping::{Ping, PingResult};
 use std::sync::{Arc, Mutex};
-use std::{fmt, env, thread, time::{Duration, Instant}};
+use std::{env,
+          fmt,
+          thread,
+          time::{Duration, Instant}};
 
 struct PingStats {
     total: u32,
@@ -15,7 +18,12 @@ struct PingStats {
 
 impl PingStats {
     fn new() -> PingStats {
-        PingStats { total: 0, dropped: 0, passed: 0, durations: Vec::new() }
+        PingStats {
+            total: 0,
+            dropped: 0,
+            passed: 0,
+            durations: Vec::new(),
+        }
     }
 
     fn avg(&self) -> f64 {
@@ -26,7 +34,14 @@ impl PingStats {
 
 impl fmt::Display for PingStats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} passed, {} dropped ({} total, {:.2}ms avg)", self.passed, self.dropped, self.total, self.avg())
+        write!(
+            f,
+            "{} passed, {} dropped ({} total, {:.2}ms avg)",
+            self.passed,
+            self.dropped,
+            self.total,
+            self.avg()
+        )
     }
 }
 
@@ -69,11 +84,11 @@ fn main() {
             Err(e) => {
                 eprintln!("failed to ping {} ({})", ip, e);
                 (*stats).dropped += 1;
-            },
+            }
             Ok(latency) if latency == -1.0_f64 => {
                 eprintln!("failed to ping {}, timed out", ip);
                 (*stats).dropped += 1;
-            },
+            }
             Ok(latency) => {
                 (*stats).passed += 1;
                 (*stats).durations.push(latency);
@@ -86,5 +101,9 @@ fn main() {
     signal.recv().unwrap();
     let stats = stats.clone();
     let stats = stats.lock().unwrap();
-    println!("Statistics: {}, spent {} pinging", stats, pretty_duration(&now.elapsed()));
+    println!(
+        "Statistics: {}, spent {} pinging",
+        stats,
+        pretty_duration(&now.elapsed())
+    );
 }
