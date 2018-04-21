@@ -30,15 +30,20 @@ impl PingStats {
         let sum: f64 = self.durations.iter().sum();
         sum / self.durations.len() as f64
     }
+
+    fn percentage_dropped(&self) -> f64 {
+        return (self.dropped as f64 / self.total as f64) * 100.0
+    }
 }
 
 impl fmt::Display for PingStats {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{} passed, {} dropped ({} total, {:.2}ms avg)",
+            "{} passed, {} ({:.2}%) dropped ({} total, {:.2}ms avg)",
             self.passed,
             self.dropped,
+            self.percentage_dropped(),
             self.total,
             self.avg()
         )
