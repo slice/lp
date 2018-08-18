@@ -1,9 +1,10 @@
-extern crate chan_signal;
-use chan_signal::Signal;
-
+extern crate libc;
+extern crate signal_hook;
 extern crate oping;
+
 use oping::{Ping, PingResult};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{env,
           fmt,
           thread,
@@ -80,7 +81,10 @@ fn main() {
     let now = Instant::now();
     let ip = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
     let stats = Arc::new(Mutex::new(PingStats::new()));
-    let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
+
+    let term = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(libc::SIGINT, Arc::clone(&term))
+        .expect("failed to register signal hook");
 
     let stats_clone = stats.clone();
     thread::spawn(move || loop {
@@ -103,7 +107,8 @@ fn main() {
         thread::sleep(Duration::from_millis(1000));
     });
 
-    signal.recv().unwrap();
+    while !term.load(Ordering::Relaxed) {}
+
     let stats = stats.clone();
     let stats = stats.lock().unwrap();
     println!(
