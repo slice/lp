@@ -1,48 +1,48 @@
-extern crate libc;
-extern crate signal_hook;
-extern crate oping;
-
 use oping::{Ping, PingResult};
+use signal_hook::iterator::Signals;
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::{env,
-          fmt,
-          thread,
-          time::{Duration, Instant}};
+use std::{
+    env, fmt, thread,
+    time::{Duration, Instant},
+};
 
 struct PingStats {
     total: u32,
     dropped: u32,
-    passed: u32,
+    sent: u32,
     durations: Vec<f64>,
 }
 
 impl PingStats {
-    fn new() -> PingStats {
-        PingStats {
+    fn new() -> Self {
+        Self {
             total: 0,
             dropped: 0,
-            passed: 0,
+            sent: 0,
             durations: Vec::new(),
         }
     }
 
     fn avg(&self) -> f64 {
-        let sum: f64 = self.durations.iter().sum();
-        sum / self.durations.len() as f64
+        if self.durations.len() == 0 {
+            0.0
+        } else {
+            let sum: f64 = self.durations.iter().sum();
+            sum / self.durations.len() as f64
+        }
     }
 
     fn percentage_dropped(&self) -> f64 {
-        return (self.dropped as f64 / self.total as f64) * 100.0
+        return (self.dropped as f64 / self.total as f64) * 100.0;
     }
 }
 
 impl fmt::Display for PingStats {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(
-            f,
-            "{} passed, {} ({:.2}%) dropped ({} total, {:.2}ms avg)",
-            self.passed,
+            formatter,
+            "{} sent, {} ({:.2}%) dropped ({} total, {:.2}ms avg)",
+            self.sent,
             self.dropped,
             self.percentage_dropped(),
             self.total,
@@ -82,38 +82,52 @@ fn main() {
     let ip = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
     let stats = Arc::new(Mutex::new(PingStats::new()));
 
-    let term = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(libc::SIGINT, Arc::clone(&term))
-        .expect("failed to register signal hook");
+    let signals = Signals::new(&[signal_hook::SIGINT]).expect("failed to create sigint handler");
 
-    let stats_clone = stats.clone();
-    thread::spawn(move || loop {
-        let mut stats = stats_clone.lock().unwrap();
-        match ping(&ip) {
-            Err(e) => {
-                eprintln!("failed to ping {} ({})", ip, e);
-                (*stats).dropped += 1;
+    let ping_thread_stats_clone = Arc::clone(&stats);
+    let ping_thread = thread::spawn(move || loop {
+        {
+            let mut stats = ping_thread_stats_clone
+                .lock()
+                .expect("failed to lock stats");
+
+            match ping(&ip) {
+                Err(error) => {
+                    eprintln!("failed to ping {} ({})", ip, error);
+                    stats.dropped += 1;
+                }
+                Ok(latency) if latency == -1.0 => {
+                    eprintln!("failed to ping {}, timed out", ip);
+                    stats.dropped += 1;
+                }
+                Ok(latency) => {
+                    stats.sent += 1;
+                    stats.durations.push(latency);
+                }
             }
-            Ok(latency) if latency == -1.0_f64 => {
-                eprintln!("failed to ping {}, timed out", ip);
-                (*stats).dropped += 1;
-            }
-            Ok(latency) => {
-                (*stats).passed += 1;
-                (*stats).durations.push(latency);
-            }
+
+            stats.total += 1;
         }
-        (*stats).total += 1;
-        thread::sleep(Duration::from_millis(1000));
+
+        thread::sleep(Duration::from_secs(1));
     });
 
-    while !term.load(Ordering::Relaxed) {}
+    let signal_thread_stats_clone = Arc::clone(&stats);
+    thread::spawn(move || {
+        for _ in &signals {
+            let final_stats = signal_thread_stats_clone
+                .lock()
+                .expect("failed to lock stats");
 
-    let stats = stats.clone();
-    let stats = stats.lock().unwrap();
-    println!(
-        "Statistics: {}, spent {} pinging",
-        stats,
-        pretty_duration(&now.elapsed())
-    );
+            println!(
+                "ping statistics: {}, spent {}",
+                final_stats,
+                pretty_duration(&now.elapsed())
+            );
+
+            std::process::exit(0);
+        }
+    });
+
+    ping_thread.join().unwrap();
 }
