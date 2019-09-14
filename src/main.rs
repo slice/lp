@@ -4,35 +4,22 @@ use std::{
     time::{Duration, Instant},
 };
 
-use oping::{Ping, PingResult};
+use oping::{Ping, PingResult, PingItem};
 use signal_hook::iterator::Signals;
 
-use lp::PingStats;
+use lp::{PingStats, formatting::format_duration};
 
-fn ping(host: &str) -> PingResult<f64> {
+fn ping(host: &str) -> PingResult<PingItem> {
     let mut ping = Ping::new();
     ping.set_timeout(5.0)?;
     ping.add_host(host)?;
-    let response = ping.send()?.next().expect("ping got thrown into the void");
-    let target = if response.hostname == response.address {
-        response.address
-    } else {
-        format!("{} ({})", response.hostname, response.address)
-    };
-    println!(">> {}, {}ms", target, response.latency_ms);
-    Ok(response.latency_ms)
-}
 
-fn pretty_duration(dur: &Duration) -> String {
-    let secs = dur.as_secs();
+    let response = ping
+        .send()?
+        .next()
+        .expect("ping got thrown into the void somehow");
 
-    if secs > 60 && secs < 60 * 60 {
-        format!("{}m, {}s", secs / 60, secs % 60)
-    } else if secs > 60 * 60 {
-        format!("{}h", secs / 3600)
-    } else {
-        format!("{}s", secs)
-    }
+    Ok(response)
 }
 
 fn main() {
@@ -51,16 +38,24 @@ fn main() {
 
             match ping(&ip) {
                 Err(error) => {
-                    eprintln!("failed to ping {} ({})", ip, error);
+                    eprintln!("error   | failed to ping {} ({})", ip, error);
                     stats.dropped += 1;
                 }
-                Ok(latency) if latency == -1.0 => {
-                    eprintln!("failed to ping {}, timed out", ip);
+                Ok(ref response) if response.latency_ms == -1.0 => {
+                    eprintln!("error   | failed to ping {}, timed out", ip);
                     stats.dropped += 1;
                 }
-                Ok(latency) => {
+                Ok(ref response) => {
                     stats.sent += 1;
-                    stats.durations.push(latency);
+
+                    let target = if response.hostname == response.address {
+                        response.address.clone()
+                    } else {
+                        format!("{} ({})", response.hostname, response.address)
+                    };
+                    println!("{:07} | {}, {}ms", stats.sent, target, response.latency_ms);
+
+                    stats.durations.push(response.latency_ms);
                 }
             }
 
@@ -77,10 +72,11 @@ fn main() {
                 .lock()
                 .expect("failed to lock stats");
 
+            println!();
             println!(
                 "ping statistics: {}, spent {}",
                 final_stats,
-                pretty_duration(&now.elapsed())
+                format_duration(&now.elapsed())
             );
 
             std::process::exit(0);

@@ -1,5 +1,7 @@
 use std::fmt;
 
+pub mod formatting;
+
 /// Overall ping statistics.
 pub struct PingStats {
     /// Total number of pings performed.
