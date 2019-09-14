@@ -1,55 +1,13 @@
-use oping::{Ping, PingResult};
-use signal_hook::iterator::Signals;
 use std::sync::{Arc, Mutex};
 use std::{
-    env, fmt, thread,
+    env, thread,
     time::{Duration, Instant},
 };
 
-struct PingStats {
-    total: u32,
-    dropped: u32,
-    sent: u32,
-    durations: Vec<f64>,
-}
+use oping::{Ping, PingResult};
+use signal_hook::iterator::Signals;
 
-impl PingStats {
-    fn new() -> Self {
-        Self {
-            total: 0,
-            dropped: 0,
-            sent: 0,
-            durations: Vec::new(),
-        }
-    }
-
-    fn avg(&self) -> f64 {
-        if self.durations.len() == 0 {
-            0.0
-        } else {
-            let sum: f64 = self.durations.iter().sum();
-            sum / self.durations.len() as f64
-        }
-    }
-
-    fn percentage_dropped(&self) -> f64 {
-        return (self.dropped as f64 / self.total as f64) * 100.0;
-    }
-}
-
-impl fmt::Display for PingStats {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            formatter,
-            "{} sent, {} ({:.2}%) dropped ({} total, {:.2}ms avg)",
-            self.sent,
-            self.dropped,
-            self.percentage_dropped(),
-            self.total,
-            self.avg()
-        )
-    }
-}
+use lp::PingStats;
 
 fn ping(host: &str) -> PingResult<f64> {
     let mut ping = Ping::new();
