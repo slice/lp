@@ -38,11 +38,11 @@ fn main() {
 
             match ping(&ip) {
                 Err(error) => {
-                    eprintln!("error   | failed to ping {} ({})", ip, error);
+                    eprintln!("  ERROR | {} ▸ {}", ip, error);
                     stats.dropped += 1;
                 }
                 Ok(ref response) if response.latency_ms == -1.0 => {
-                    eprintln!("error   | failed to ping {}, timed out", ip);
+                    eprintln!("  ERROR | {} ▸ timed out", ip);
                     stats.dropped += 1;
                 }
                 Ok(ref response) => {
@@ -53,7 +53,7 @@ fn main() {
                     } else {
                         format!("{} ({})", response.hostname, response.address)
                     };
-                    println!("{:07} | {}, {}ms", stats.sent, target, response.latency_ms);
+                    println!("{:>7} | {} ▸ {}ms", stats.sent, target, response.latency_ms);
 
                     stats.durations.push(response.latency_ms);
                 }
