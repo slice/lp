@@ -11,7 +11,7 @@ use lp::{PingStats, formatting::format_duration};
 
 fn ping(host: &str) -> PingResult<PingItem> {
     let mut ping = Ping::new();
-    ping.set_timeout(5.0)?;
+    ping.set_timeout(2.0)?;
     ping.add_host(host)?;
 
     let response = ping
