@@ -4,10 +4,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use oping::{Ping, PingResult, PingItem};
+use oping::{Ping, PingItem, PingResult};
 use signal_hook::iterator::Signals;
 
-use lp::{PingStats, formatting::format_duration};
+use lp::{formatting::format_duration, PingStats};
 
 fn ping(host: &str) -> PingResult<PingItem> {
     let mut ping = Ping::new();
@@ -53,7 +53,10 @@ fn main() {
                     } else {
                         format!("{} ({})", response.hostname, response.address)
                     };
-                    println!("{:>7} | {} ▸ {}ms", stats.sent, target, response.latency_ms);
+                    println!(
+                        "{:>7} | {} ▸ {}ms",
+                        stats.sent, target, response.latency_ms
+                    );
 
                     stats.durations.push(response.latency_ms);
                 }
@@ -74,9 +77,10 @@ fn main() {
 
             println!();
             println!(
-                "ping statistics: {}, spent {}",
-                final_stats,
-                format_duration(&now.elapsed())
+                "{stats}
+time spent ▸ {spent}",
+                stats = final_stats,
+                spent = format_duration(&now.elapsed()),
             );
 
             std::process::exit(0);

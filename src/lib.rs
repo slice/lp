@@ -27,7 +27,23 @@ impl PingStats {
         }
     }
 
-    pub fn avg(&self) -> f64 {
+    pub fn min(&self) -> f64 {
+        // Can't use `.min` here because `f64` isn't `Ord`.
+        self
+            .durations
+            .iter()
+            .fold(0.0_f64, |l, &r| l.max(r))
+    }
+
+    pub fn max(&self) -> f64 {
+        // Can't use `.max` here because `f64` isn't `Ord`.
+        self
+            .durations
+            .iter()
+            .fold(0.0_f64, |l, &r| l.max(r))
+    }
+
+    pub fn mean(&self) -> f64 {
         if self.durations.len() == 0 {
             0.0
         } else {
@@ -45,12 +61,15 @@ impl fmt::Display for PingStats {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(
             formatter,
-            "{} sent, {} ({:.2}%) dropped ({} total, {:.2}ms avg)",
-            self.sent,
-            self.dropped,
-            self.percentage_dropped(),
-            self.total,
-            self.avg()
+            "packets    ▸ {sent}/{total} sent, {dropped}/{total} ({percentage_dropped:.2}%) dropped, {total} total
+latency    ▸ {mean:.2}ms mean, {min:.2}ms min, {max:.2}ms max",
+            sent = self.sent,
+            dropped = self.dropped,
+            percentage_dropped = self.percentage_dropped(),
+            total = self.total,
+            mean = self.mean(),
+            min = self.min(),
+            max = self.max(),
         )
     }
 }
