@@ -28,27 +28,24 @@ fn ping(ip: &str, stats: &Arc<Mutex<PingStats>>) {
     match send_ping(&ip) {
         Err(error) => {
             eprintln!("  ERROR | {} ▸ {}", ip, error);
-            stats.dropped += 1;
+            stats.record_dropped();
         }
         Ok(ref response) if response.latency_ms == -1.0 => {
             eprintln!("  ERROR | {} ▸ timed out", ip);
-            stats.dropped += 1;
+            stats.record_dropped();
         }
         Ok(ref response) => {
-            stats.sent += 1;
+            let latency = response.latency_ms;
+            stats.record(latency);
 
             let target = if response.hostname == response.address {
                 response.address.clone()
             } else {
                 format!("{} ({})", response.hostname, response.address)
             };
-            println!("{:>7} | {} ▸ {}ms", stats.sent, target, response.latency_ms);
-
-            stats.durations.push(response.latency_ms);
+            println!("{:>7} | {} ▸ {}ms", stats.total_sent, target, latency);
         }
     }
-
-    stats.total += 1;
 }
 
 fn main() {
