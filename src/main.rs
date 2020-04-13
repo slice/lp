@@ -6,6 +6,7 @@ use std::{
 
 use oping::{Ping, PingItem, PingResult};
 use signal_hook::iterator::Signals;
+use chrono::{Local, DateTime};
 
 use lp::{formatting::format_duration, PingStats};
 
@@ -50,6 +51,7 @@ fn ping(ip: &str, stats: &Arc<Mutex<PingStats>>) {
 
 fn main() {
     let now = Instant::now();
+    let now_dt: DateTime<Local> = Local::now();
     let ip = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
     let stats = Arc::new(Mutex::new(PingStats::new()));
 
@@ -65,11 +67,13 @@ fn main() {
         let _ = signals.into_iter().next();
 
         let final_stats = signal_stats_handle.lock().expect("failed to lock stats");
+        let started = now_dt.format("%Y-%m-%d %H:%M:%S").to_string();
 
         println!(
-            "\n{stats}\npinged for {spent}",
+            "\n---\n{stats}\npinged for {spent} (started {started})",
             stats = final_stats,
             spent = format_duration(&now.elapsed()),
+            started = started,
         );
 
         std::process::exit(0);
