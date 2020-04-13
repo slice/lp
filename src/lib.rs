@@ -55,8 +55,9 @@ impl fmt::Display for PingStats {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         write!(
             formatter,
-            "packets    ▸ {sent}/{total} sent, {dropped}/{total} ({percentage_dropped:.2}%) dropped, {total} total
-latency    ▸ {mean:.2}ms mean, {min:.2}ms min, {max:.2}ms max",
+            "{sent}/{total} sent, {dropped}/{total} \
+            ({percentage_dropped:.2}%) dropped, {total} total\n\
+            latency: {mean:.2}ms mean, {min:.2}ms min, {max:.2}ms max",
             sent = self.sent,
             dropped = self.dropped,
             percentage_dropped = self.percentage_dropped(),

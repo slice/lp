@@ -70,8 +70,7 @@ fn main() {
         let final_stats = signal_stats_handle.lock().expect("failed to lock stats");
 
         println!(
-            "\n{stats}
-time spent ▸ {spent}",
+            "\n{stats}\npinged for {spent}",
             stats = final_stats,
             spent = format_duration(&now.elapsed()),
         );
