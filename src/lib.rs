@@ -29,18 +29,12 @@ impl PingStats {
 
     pub fn min(&self) -> f64 {
         // Can't use `.min` here because `f64` isn't `Ord`.
-        self
-            .durations
-            .iter()
-            .fold(0.0_f64, |l, &r| l.max(r))
+        self.durations.iter().fold(0.0_f64, |l, &r| l.max(r))
     }
 
     pub fn max(&self) -> f64 {
         // Can't use `.max` here because `f64` isn't `Ord`.
-        self
-            .durations
-            .iter()
-            .fold(0.0_f64, |l, &r| l.max(r))
+        self.durations.iter().fold(0.0_f64, |l, &r| l.max(r))
     }
 
     pub fn mean(&self) -> f64 {
