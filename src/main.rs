@@ -1,6 +1,7 @@
-use std::borrow::Cow;
-use std::ops::DerefMut;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::sync::Mutex;
+use std::{borrow::Cow, ops::DerefMut};
 use std::{
     env, thread,
     time::{Duration, Instant},
@@ -8,7 +9,7 @@ use std::{
 
 use chrono::{DateTime, Local};
 use oping::{Ping, PingItem, PingResult};
-use signal_hook::iterator::Signals;
+use signal_hook::{consts::SIGINT, iterator::Signals};
 
 use lp::{formatting::format_duration, PingStats};
 
@@ -76,7 +77,15 @@ fn main() {
 
     let ping_target = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
     let stats = Mutex::new(PingStats::new());
-    let signals = Signals::new([signal_hook::SIGINT]).expect("failed to create SIGINT handler");
+
+    let next_sigint_exits = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register_conditional_shutdown(SIGINT, 1, Arc::clone(&next_sigint_exits))
+        .expect("failed to register SIGINT conditional shutdown");
+    signal_hook::flag::register(SIGINT, Arc::clone(&next_sigint_exits))
+        .expect("failed to register SIGINT arming");
+
+    let mut signals =
+        Signals::new([signal_hook::consts::SIGINT]).expect("failed to create SIGINT handler");
 
     std::thread::scope(|scope| {
         scope.spawn(|| loop {

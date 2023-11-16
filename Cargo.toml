@@ -7,5 +7,5 @@ edition = "2018"
 [dependencies]
 libc = "0.2.62"
 oping = "0.3.3"
-signal-hook = "0.1.10"
+signal-hook = "0.3"
 chrono = "0.4"
