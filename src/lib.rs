@@ -2,6 +2,7 @@ use std::fmt;
 
 pub mod formatting;
 
+#[derive(Clone)]
 pub struct PingStats {
     pub total: usize,
     pub total_dropped: usize,
@@ -50,21 +51,29 @@ impl PingStats {
         }
     }
 
-    pub fn percentage_dropped(&self) -> f64 {
-        return (self.total_dropped as f64 / self.total as f64) * 100.0;
+    pub fn percentage_dropped(&self) -> Option<f64> {
+        if self.total == 0 {
+            None
+        } else {
+            Some((self.total_dropped as f64 / self.total as f64) * 100.0)
+        }
     }
 }
 
 impl fmt::Display for PingStats {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        let percentage_dropped = self.percentage_dropped().map_or_else(
+            || String::new(),
+            |percentage| format!(" ({percentage:.2}%)"),
+        );
+
         write!(
             formatter,
-            "{sent}/{total} sent, {dropped}/{total} \
-            ({percentage_dropped:.2}%) dropped, {total} total\n\
+            "  stats: attempted {total} pings, {sent}/{total} OK, {dropped}/{total}\
+            {percentage_dropped} dropped\n\
             latency: {mean:.2}ms mean, {min:.2}ms min, {max:.2}ms max",
             sent = self.total_sent,
             dropped = self.total_dropped,
-            percentage_dropped = self.percentage_dropped(),
             total = self.total,
             mean = self.mean(),
             min = self.latency_min,

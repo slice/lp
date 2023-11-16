@@ -1,12 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::borrow::Cow;
+use std::ops::DerefMut;
+use std::sync::Mutex;
 use std::{
     env, thread,
     time::{Duration, Instant},
 };
 
+use chrono::{DateTime, Local};
 use oping::{Ping, PingItem, PingResult};
 use signal_hook::iterator::Signals;
-use chrono::{Local, DateTime};
 
 use lp::{formatting::format_duration, PingStats};
 
@@ -23,61 +25,86 @@ fn send_ping(host: &str) -> PingResult<PingItem> {
     Ok(response)
 }
 
-fn ping(ip: &str, stats: &Arc<Mutex<PingStats>>) {
-    let mut stats = stats.lock().expect("failed to lock stats");
+fn record_and_echo(
+    user_provided_target: &str,
+    ping_result: PingResult<PingItem>,
+    mut stats: impl DerefMut<Target = PingStats>,
+) {
+    // "im not owned!  im not owned!!"
+    let mut tag: String = "  ERROR".to_owned();
+    let divider = '\u{25b8}';
 
-    match send_ping(&ip) {
+    let resolved_target = match ping_result {
+        Ok(ref result) if result.hostname != result.address => {
+            // If we resolved a hostname that differs from the address, make it
+            // visible to the user.
+            Cow::Owned(format!(
+                "{hostname} ({address})",
+                hostname = result.hostname,
+                address = result.address
+            ))
+        }
+        _ => Cow::Borrowed(user_provided_target),
+    };
+
+    let remark: Cow<'_, str>;
+
+    match ping_result {
         Err(error) => {
-            eprintln!("  ERROR | {} ▸ {}", ip, error);
+            remark = Cow::Owned(error.to_string());
             stats.record_dropped();
         }
         Ok(ref response) if response.latency_ms == -1.0 => {
-            eprintln!("  ERROR | {} ▸ timed out", ip);
+            remark = Cow::Borrowed("timed out");
             stats.record_dropped();
         }
         Ok(ref response) => {
             let latency = response.latency_ms;
             stats.record(latency);
 
-            let target = if response.hostname == response.address {
-                response.address.clone()
-            } else {
-                format!("{} ({})", response.hostname, response.address)
-            };
-            println!("{:>7} | {} ▸ {}ms", stats.total_sent, target, latency);
+            tag = format!("{:>7}", stats.total_sent);
+            remark = Cow::Owned(format!("{latency}ms"));
         }
     }
+
+    println!("{tag} | {resolved_target} {divider} {remark}");
 }
 
 fn main() {
     let now = Instant::now();
-    let now_dt: DateTime<Local> = Local::now();
-    let ip = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
-    let stats = Arc::new(Mutex::new(PingStats::new()));
+    let now_datetime: DateTime<Local> = Local::now();
 
-    let ping_stats_handle = Arc::clone(&stats);
-    let ping_thread = thread::spawn(move || loop {
-        ping(&ip, &ping_stats_handle);
-        thread::sleep(Duration::from_secs(1));
+    let ping_target = env::args().nth(1).unwrap_or_else(|| "8.8.8.8".to_string());
+    let stats = Mutex::new(PingStats::new());
+    let signals = Signals::new([signal_hook::SIGINT]).expect("failed to create SIGINT handler");
+
+    std::thread::scope(|scope| {
+        scope.spawn(|| loop {
+            let ping_result = send_ping(&ping_target);
+            record_and_echo(
+                &ping_target,
+                ping_result,
+                stats.lock().expect("mutex poisoned"),
+            );
+            thread::sleep(Duration::from_secs(1));
+        });
+
+        scope.spawn(|| {
+            let _ = signals.into_iter().next();
+            let started = now_datetime.format("%Y-%m-%d %H:%M:%S").to_string();
+
+            // ^C doesn't drop us to the next line
+            println!();
+
+            println!(
+                "{stats}\n   \
+                time: pinged for {spent} (began {started})",
+                stats = stats.lock().unwrap(),
+                spent = format_duration(&now.elapsed()),
+                started = started,
+            );
+
+            std::process::exit(0);
+        });
     });
-
-    let signals = Signals::new(&[signal_hook::SIGINT]).expect("failed to create sigint handler");
-    let signal_stats_handle = Arc::clone(&stats);
-    thread::spawn(move || {
-        let _ = signals.into_iter().next();
-
-        let final_stats = signal_stats_handle.lock().expect("failed to lock stats");
-        let started = now_dt.format("%Y-%m-%d %H:%M:%S").to_string();
-
-        println!(
-            "\n---\n{stats}\npinged for {spent} (started {started})",
-            stats = final_stats,
-            spent = format_duration(&now.elapsed()),
-            started = started,
-        );
-
-        std::process::exit(0);
-    });
-
-    ping_thread.join().unwrap();
 }
