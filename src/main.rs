@@ -93,7 +93,7 @@ fn main() {
             record_and_echo(
                 &ping_target,
                 ping_result,
-                stats.lock().expect("mutex poisoned"),
+                stats.lock().expect("stats mutex poisoned"),
             );
             thread::sleep(Duration::from_secs(1));
         });
